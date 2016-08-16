@@ -38,10 +38,17 @@ public final class HystrixFeign {
      * @see #target(Class, String, Object)
      */
     public <T> T target(Target<T> target, final T fallback) {
+      return target(target, fallback != null ? new FallbackFactory.Default<T>(fallback) : null);
+    }
+
+    /**
+     * @see #target(Class, String, FallbackFactory)
+     */
+    public <T> T target(Target<T> target, final FallbackFactory<T> fallbackFactory) {
       super.invocationHandlerFactory(new InvocationHandlerFactory() {
         @Override
         public InvocationHandler create(Target target, Map<Method, MethodHandler> dispatch) {
-          return new HystrixInvocationHandler(target, dispatch, fallback);
+          return new HystrixInvocationHandler(target, dispatch, fallbackFactory);
         }
       });
       super.contract(new HystrixDelegatingContract(contract));
@@ -85,6 +92,14 @@ public final class HystrixFeign {
      */
     public <T> T target(Class<T> apiType, String url, T fallback) {
       return target(new Target.HardCodedTarget<T>(apiType, url), fallback);
+    }
+
+    /**
+     * Same as {@link #target(Class, String, T)}, except you can inspect a source exception before
+     * creating a fallback object.
+     */
+    public <T> T target(Class<T> apiType, String url, FallbackFactory<T> fallbackFactory) {
+      return target(new Target.HardCodedTarget<T>(apiType, url), fallbackFactory);
     }
 
     @Override

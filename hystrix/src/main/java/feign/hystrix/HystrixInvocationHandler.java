@@ -19,7 +19,6 @@ import com.netflix.hystrix.HystrixCommand;
 import com.netflix.hystrix.HystrixCommandGroupKey;
 import com.netflix.hystrix.HystrixCommandKey;
 
-import com.netflix.hystrix.HystrixCommandProperties;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -40,13 +39,14 @@ final class HystrixInvocationHandler implements InvocationHandler {
 
   private final Target<?> target;
   private final Map<Method, MethodHandler> dispatch;
-  private final Object fallback; // Nullable
+  private final FallbackFactory<?> fallbackFactory; // Nullable
   private final Map<Method, Method> fallbackMethodMap;
 
-  HystrixInvocationHandler(Target<?> target, Map<Method, MethodHandler> dispatch, Object fallback) {
+  HystrixInvocationHandler(Target<?> target, Map<Method, MethodHandler> dispatch,
+      FallbackFactory<?> fallbackFactory) {
     this.target = checkNotNull(target, "target");
     this.dispatch = checkNotNull(dispatch, "dispatch");
-    this.fallback = fallback;
+    this.fallbackFactory = fallbackFactory;
     this.fallbackMethodMap = toFallbackMethod(dispatch);
   }
 
@@ -106,10 +106,11 @@ final class HystrixInvocationHandler implements InvocationHandler {
 
       @Override
       protected Object getFallback() {
-        if (fallback == null) {
+        if (fallbackFactory == null) {
           return super.getFallback();
         }
         try {
+          Object fallback = fallbackFactory.create(getFailedExecutionException());
           Object result = fallbackMethodMap.get(method).invoke(fallback, args);
           if (isReturnsHystrixCommand(method)) {
             return ((HystrixCommand) result).execute();
